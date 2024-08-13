@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Aplicação</title>
+</head>
+<body>
+    <h1>Dados da Bolsa</h1>
+    <div id="data"></div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            fetch('http://localhost:5000/api/company/MSFT')
+                .then(response => {
+                    console.log(response);
+                    return response.text();
+                })
+                .then(text => {
+                    console.log(text);
+                    try {
+                        const data = JSON.parse(text);
+                        const dataDiv = document.getElementById('data');
+                        if (data) {
+                            let output = '<ul>';
+
+                            for (const [key, value] of Object.entires(data)) {
+                                output += `<li>${key} : ${value}</li>`
+                            }
+
+                            output += '</ul>';
+                            dataDiv.innerHTML = output;
+                        } else {
+                            dataDiv.innerHTML = 'Nenhum dado encontrado';
+                        }
+                    }
+                    catch (error) {
+                        console.error('Erro ao analisar o JSON: ', error);
+                        const dataDiv = document.getElementById('data');
+                        dataDiv.innerHTML = `Erro ao buscar dados. ${error}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar dados:', error);
+                    const dataDiv = document.getElementById('data');
+                    dataDiv.innerHTML = `Erro ao buscar dados. ${error}`;
+                });
+        });
+    </script>
+</body>
+</html>
