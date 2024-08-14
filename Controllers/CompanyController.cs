@@ -20,25 +20,33 @@ namespace InvestProject.Controllers
         }
 
         [HttpGet("{sigla}")]
-        public async Task<IActionResult> GetCompanyData(string sigla, string interval = "5min")
+        public async Task<IActionResult> GetCompanyData(string sigla)
         {
-            _logger.LogInformation($"Iniciando solicitação para a sigla: {sigla}, intervalo: {interval}");
+            _logger.LogInformation($"Iniciando solicitação para a sigla: {sigla}");
             try
             {
-                var data = await _service.GetCompanyDataAsync(sigla, interval);
+                var (data, standardDeviation) = await _service.GetCompanyDataAsync(sigla);
 
                 if (data == null || data.Count == 0)
                 {
                     _logger.LogWarning($"Nenhum dado encontrado para a sigla: {sigla}");
                     return NotFound("Dados não encontrados.");
                 }
-                return Ok(data);
+                var result = new
+                {
+                    Data = data,
+                    StandardDeviation = standardDeviation
+                };
+
+                return Ok(result);
             }
             catch(Exception ex)
             {
                 _logger.LogError(ex, "Erro ao processar a solicitação");
                 return StatusCode(500, "Erro interno no servidor.");
             }
+
+            
         }
     }
 }

@@ -21,28 +21,25 @@ namespace InvestProject.Repositories
             _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
         }
 
-        public async Task<Dictionary<string, decimal>> GetCompanyDataAsync(string sigla, string interval)
-        {
-            var url = $"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={sigla}&interval={interval}&apikey={_apiKey}";
+        public async Task<Dictionary<string, decimal>> GetCompanyDataAsync(string sigla)
+
+            var url = $"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol={sigla}&apikey={_apiKey}";
             var response = await _httpClient.GetStringAsync(url);
 
             using (JsonDocument doc = JsonDocument.Parse(response))
             {
                 var root = doc.RootElement;
 
-                // Verifique o nome da propriedade com base na resposta da API
-                if (root.TryGetProperty($"Time Series ({interval})", out JsonElement timeSeries))
-                {
+                if (root.TryGetProperty($"Monthly Time Series", out JsonElement timeSeries))
+                    {
                     var result = new Dictionary<string, decimal>();
 
                     foreach (JsonProperty entry in timeSeries.EnumerateObject())
                     {
                         var dateTime = entry.Name;
 
-                        // Verifique se a propriedade "4. close" existe e se é do tipo número
                         if (entry.Value.TryGetProperty("4. close", out JsonElement closeElement) && closeElement.ValueKind == JsonValueKind.String)
                         {
-                            // Tente converter o valor para decimal
                             if (Decimal.TryParse(closeElement.GetString(), out var closeValue))
                             {
                                 result[dateTime] = closeValue;
@@ -62,7 +59,7 @@ namespace InvestProject.Repositories
                 }
                 else
                 {
-                    Console.WriteLine($"Propriedade 'Time Series ({interval})' não encontrada.");
+                    Console.WriteLine($"Propriedade 'Monthly Time Series' não encontrada.");
                     return new Dictionary<string, decimal>();
                 }
             }

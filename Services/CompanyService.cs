@@ -17,22 +17,33 @@ namespace InvestProject.Services
             _logger = logger;
         }
 
-        public async Task<Dictionary<string, decimal>> GetCompanyDataAsync(string sigla, string interval)
+        public async Task<(Dictionary<string, decimal> Data, double StandardDeviation)> GetCompanyDataAsync(string sigla)
         {
-            _logger.LogInformation($"Buscando dados para a sigla: {sigla}, intervalo: {interval}");
+            _logger.LogInformation($"Buscando dados para a sigla: {sigla}");
 
             try
             {
-                var data = await _repository.GetCompanyDataAsync(sigla, interval);
+                var data = await _repository.GetCompanyDataAsync(sigla);
 
                 if (data == null || data.Count == 0)
                 {
-                    _logger.LogWarning($"Nenhum dado encontrado para a sigla: {sigla} no intervalo: {interval}");
-                    return new Dictionary<string, decimal>();
+                    _logger.LogWarning($"Nenhum dado encontrado para a sigla: {sigla}");
+                    return (new Dictionary<string, decimal>(), 0.0);
                 }
 
+                var prices = data.Values.Select(p => (double)p).ToList();
+                if (prices.Count == 0)
+                {
+                    _logger.LogWarning("Sem preços disponíveis para calcular o desvio padrão.");
+                    return (data, 0.0);
+                }
+
+                var mean = prices.Average();
+                var variance = prices.Average(v => Math.Pow(v - mean, 2));
+                var standardDeviation = Math.Sqrt(variance);
+
                 _logger.LogInformation($"Dados encontrados: {data.Count} entradas para a sigla: {sigla}");
-                return data;
+                return (data, standardDeviation);
             }
             catch (JsonException jsonEx)
             {

@@ -1,51 +1,302 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Minha Aplica��o</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InvestProject</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-top: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px;
+        }
+
+        label {
+            margin-bottom: 10px;
+            font-size: 18px;
+            color: #333;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            width: 250px;
+            max-width: 100%;
+        }
+
+        input[type="submit"] {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            background-color: #28a745;
+            color: white;
+            cursor: pointer;
+            width: 250px;
+            max-width: 100%;
+        }
+
+            input[type="submit"]:hover {
+                background-color: #218838;
+            }
+
+        #data, #indicator, #summary {
+            text-align: center;
+            margin: 20px;
+        }
+
+        table {
+            width: 80%;
+            margin: 0 auto;
+            border-collapse: collapse;
+            background-color: #fff;
+            margin-bottom: 20px;
+        }
+
+        thead {
+            background-color: #f4f4f4;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            color: #333;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .year-header {
+            background-color: #e9ecef;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        #indicator, #summary {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .pagination {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+            .pagination button {
+                padding: 10px 20px;
+                font-size: 16px;
+                border: none;
+                border-radius: 4px;
+                background-color: #007bff;
+                color: white;
+                cursor: pointer;
+                margin: 0 5px;
+            }
+
+                .pagination button.disabled {
+                    background-color: #6c757d;
+                    cursor: not-allowed;
+                }
+
+        #moving-average {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
     <h1>Dados da Bolsa</h1>
+    <form id="company-form">
+        <label for="company-symbol">Escreva o símbolo da companhia para consulta:</label>
+        <input type="text" id="company-symbol" placeholder="Digite o símbolo" />
+        <input type="submit" value="Consultar" />
+    </form>
+
     <div id="data"></div>
+
+    <table id="data-table">
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Preço de Fechamento</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div id="indicator"></div>
+    <div id="summary"></div>
+    <div class="pagination">
+        <button id="prev-year" class="disabled">Ano Anterior</button>
+        <button id="next-year">Próximo Ano</button>
+    </div>
+    <div id="moving-average"></div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            fetch('http://localhost:5000/api/company/MSFT')
-                .then(response => {
-                    console.log(response);
-                    return response.text();
-                })
-                .then(text => {
-                    console.log(text);
-                    try {
-                        const data = JSON.parse(text);
-                        const dataDiv = document.getElementById('data');
-                        if (data) {
-                            let output = '<ul>';
+            const form = document.getElementById('company-form');
+            const dataDiv = document.getElementById('data');
+            const resultsTbody = document.querySelector('#data-table tbody');
+            const indicatorDiv = document.getElementById('indicator');
+            const summaryDiv = document.getElementById('summary');
+            const movingAverageDiv = document.getElementById('moving-average');
+            const prevYearButton = document.getElementById('prev-year');
+            const nextYearButton = document.getElementById('next-year');
 
-                            for (const [key, value] of Object.entries(data)) {
-                                output += `<li>${key} : ${value}</li>`
+            let allData = {};
+            let years = [];
+            let currentYearIndex = 0;
+
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+
+                const symbol = document.getElementById('company-symbol').value.trim();
+                if (symbol) {
+                    fetch(`http://localhost:5000/api/company/${symbol}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
                             }
+                            return response.json();
+                        })
+                        .then(result => {
+                            const data = result.data;
+                            allData = groupByYear(data);
+                            years = Object.keys(allData).sort((a, b) => b - a); // Ordenar anos do mais recente para o mais antigo
+                            currentYearIndex = 0; // Começar pelo ano mais recente
 
-                            output += '</ul>';
-                            dataDiv.innerHTML = output;
-                        } else {
-                            dataDiv.innerHTML = 'Nenhum dado encontrado';
-                        }
+                            if (years.length > 0) {
+                                updateTable();
+                                nextYearButton.classList.add('disabled');
+                                if (years.length > 1) {
+                                    prevYearButton.classList.remove('disabled');
+                                }
+                            } else {
+                                dataDiv.innerHTML = 'Nenhum dado encontrado';
+                                indicatorDiv.innerHTML = '';
+                                summaryDiv.innerHTML = '';
+                                movingAverageDiv.innerHTML = '';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erro ao buscar dados:', error);
+                            dataDiv.innerHTML = `Erro ao buscar dados. ${error}`;
+                            indicatorDiv.innerHTML = '';
+                            summaryDiv.innerHTML = '';
+                            movingAverageDiv.innerHTML = '';
+                        });
+                } else {
+                    dataDiv.innerHTML = 'Por favor, digite um símbolo de companhia.';
+                    indicatorDiv.innerHTML = '';
+                    summaryDiv.innerHTML = '';
+                    movingAverageDiv.innerHTML = '';
+                }
+            });
+
+            nextYearButton.addEventListener('click', function () {
+                if (currentYearIndex > 0) {
+                    currentYearIndex--;
+                    updateTable();
+                    prevYearButton.classList.remove('disabled');
+                    if (currentYearIndex === 0) {
+                        nextYearButton.classList.add('disabled');
                     }
-                    catch (error) {
-                        console.error('Erro ao analisar o JSON: ', error);
-                        const dataDiv = document.getElementById('data');
-                        dataDiv.innerHTML = `Erro ao buscar dados. ${error}`;
+                }
+            });
+
+            prevYearButton.addEventListener('click', function () {
+                if (currentYearIndex < years.length - 1) {
+                    currentYearIndex++;
+                    updateTable();
+                    nextYearButton.classList.remove('disabled');
+                    if (currentYearIndex === years.length - 1) {
+                        prevYearButton.classList.add('disabled');
                     }
-                })
-                .catch(error => {
-                    console.error('Erro ao buscar dados:', error);
-                    const dataDiv = document.getElementById('data');
-                    dataDiv.innerHTML = `Erro ao buscar dados. ${error}`;
+                }
+            });
+
+            function updateTable() {
+                const year = years[currentYearIndex];
+                const data = allData[year] || [];
+                resultsTbody.innerHTML = '';
+
+                if (data.length > 0) {
+                    // Adicionar cabeçalho para o ano
+                    const yearHeader = `<tr class="year-header">
+                    <td colspan="2">Ano: ${year}</td>
+                </tr>`;
+                    resultsTbody.insertAdjacentHTML('beforeend', yearHeader);
+
+                    // Adicionar linhas para cada mês no ano
+                    data.forEach(({ date, value }) => {
+                        const row = `<tr>
+                            <td>${date}</td>
+                            <td>${value.toFixed(2)}</td>
+                         </tr>`;
+                        resultsTbody.insertAdjacentHTML('beforeend', row);
+                    });
+
+                    // Calcular e exibir a média móvel
+                    const prices = data.map(entry => entry.value);
+                    const movingAverage = calculateMovingAverage(prices, 5); // Média móvel com período de 5 meses
+                    movingAverageDiv.innerHTML = `Média Móvel: <strong>${movingAverage[movingAverage.length - 1].toFixed(2)}</strong>`;
+                } else {
+                    resultsTbody.innerHTML = '<tr><td colspan="2">Nenhum dado para este ano</td></tr>';
+                    movingAverageDiv.innerHTML = '';
+                }
+            }
+
+            function groupByYear(data) {
+                const grouped = {};
+                Object.entries(data).forEach(([date, value]) => {
+                    const year = new Date(date).getFullYear();
+                    if (!grouped[year]) {
+                        grouped[year] = [];
+                    }
+                    grouped[year].push({ date, value: parseFloat(value) });
                 });
+                return grouped;
+            }
+
+            function calculateMovingAverage(prices, period) {
+                let movingAverages = [];
+                for (let i = 0; i <= prices.length - period; i++) {
+                    const subset = prices.slice(i, i + period);
+                    const average = subset.reduce((acc, val) => acc + val, 0) / period;
+                    movingAverages.push(average);
+                }
+                return movingAverages;
+            }
         });
+
     </script>
 </body>
 </html>
