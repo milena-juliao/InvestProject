@@ -21,7 +21,7 @@ namespace InvestProject.Repositories
             _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
         }
 
-        public async Task<Dictionary<string, decimal>> GetCompanyDataAsync(string sigla)
+        public async Task<Dictionary<string, decimal>> GetCompanyDataAsync(string sigla) { 
 
             var url = $"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol={sigla}&apikey={_apiKey}";
             var response = await _httpClient.GetStringAsync(url);
